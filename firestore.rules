@@ -1,0 +1,262 @@
+rules_version = '2';
+
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+
+    function roomData(roomId) {
+      return get(
+        /databases/$(database)/documents/rooms/$(roomId)
+      ).data;
+    }
+
+
+    function roomMember(roomId) {
+
+      let room = roomData(roomId);
+
+      return signedIn()
+        && (
+          room.member1 == request.auth.uid
+          || room.member2 == request.auth.uid
+        );
+
+    }
+
+
+    match /rooms/{roomId} {
+
+
+      /*
+       * A signed-in user may retrieve a room by its exact
+       * secret room code.
+       *
+       * Listing all rooms is forbidden.
+       */
+
+      allow get:
+        if signedIn();
+
+      allow list:
+        if false;
+
+
+      /*
+       * Creating a room.
+       */
+
+      allow create:
+        if signedIn()
+        && request.resource.data.member1 == request.auth.uid
+        && request.resource.data.member2 == null;
+
+
+      /*
+       * Existing members can update room metadata/names,
+       * but cannot arbitrarily replace member IDs.
+       *
+       * A second authenticated user can occupy the empty
+       * member2 slot.
+       *
+       * The room owner may reset member2 if necessary.
+       */
+
+      allow update:
+        if signedIn()
+        && (
+
+          (
+            (
+              resource.data.member1 == request.auth.uid
+              || resource.data.member2 == request.auth.uid
+            )
+
+            && request.resource.data.member1
+              == resource.data.member1
+
+            && request.resource.data.member2
+              == resource.data.member2
+          )
+
+          ||
+
+          (
+            resource.data.member2 == null
+
+            && request.resource.data.member1
+              == resource.data.member1
+
+            && request.resource.data.member2
+              == request.auth.uid
+
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly([
+                'member2',
+                'member2Name',
+                'joinedAt',
+                'updatedAt'
+              ])
+          )
+
+          ||
+
+          (
+            resource.data.member1
+              == request.auth.uid
+
+            && request.resource.data.member1
+              == resource.data.member1
+
+            && request.resource.data.member2
+              == null
+
+            && request.resource.data
+              .diff(resource.data)
+              .affectedKeys()
+              .hasOnly([
+                'member2',
+                'member2Name',
+                'joinedAt',
+                'updatedAt'
+              ])
+          )
+
+        );
+
+
+      allow delete:
+        if false;
+
+
+      match /cookies/{cookieId} {
+
+
+        allow read:
+          if roomMember(roomId);
+
+
+        allow create:
+          if roomMember(roomId)
+          && request.resource.data.ownerUid
+            == request.auth.uid;
+
+
+        /*
+         * Either member may mark a cookie special or add
+         * a shared note, but cannot rewrite its fortune/type.
+         */
+
+        allow update:
+          if roomMember(roomId)
+
+          && request.resource.data.ownerUid
+            == resource.data.ownerUid
+
+          && request.resource.data.type
+            == resource.data.type
+
+          && request.resource.data.fortune
+            == resource.data.fortune
+
+          && request.resource.data.createdAt
+            == resource.data.createdAt
+
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasOnly([
+              'special',
+              'note',
+              'updatedAt'
+            ]);
+
+
+        allow delete:
+          if false;
+
+      }
+
+
+      match /messages/{messageId} {
+
+
+        allow read:
+          if roomMember(roomId);
+
+
+        allow create:
+          if roomMember(roomId)
+          && request.resource.data.senderUid
+            == request.auth.uid;
+
+
+        allow update:
+          if false;
+
+
+        allow delete:
+          if roomMember(roomId)
+          && resource.data.senderUid
+            == request.auth.uid;
+
+      }
+
+
+      match /yoms/{yomId} {
+
+
+        allow read:
+          if roomMember(roomId);
+
+
+        allow create:
+          if roomMember(roomId)
+          && request.resource.data.ownerUid
+            == request.auth.uid;
+
+
+        /*
+         * Both partners may change request/status,
+         * but ownership and source cookie stay immutable.
+         */
+
+        allow update:
+          if roomMember(roomId)
+
+          && request.resource.data.ownerUid
+            == resource.data.ownerUid
+
+          && request.resource.data.cookieId
+            == resource.data.cookieId
+
+          && request.resource.data.createdAt
+            == resource.data.createdAt
+
+          && request.resource.data
+            .diff(resource.data)
+            .affectedKeys()
+            .hasOnly([
+              'request',
+              'status',
+              'updatedAt'
+            ]);
+
+
+        allow delete:
+          if false;
+
+      }
+
+    }
+
+  }
+
+}
