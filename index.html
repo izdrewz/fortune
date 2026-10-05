@@ -2,36 +2,550 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f6efe3">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="Fortune">
-  <title>Fortune Cookie</title>
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <main class="app">
-    <p class="eyebrow">YOUR FORTUNE AWAITS</p>
-    <h1>Crack the cookie</h1>
-    <p class="hint">Tap it. No refunds on emotional damage.</p>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 
-    <section class="stage" aria-live="polite">
-      <button class="cookie-button" id="cookieButton" type="button" aria-label="Crack the fortune cookie">
-        <span class="cookie" aria-hidden="true">
-          <span class="cookie-half cookie-left"></span>
-          <span class="cookie-half cookie-right"></span>
-          <span class="crack"></span>
-        </span>
+  <title>Fortunes</title>
+
+  <meta name="theme-color" content="#a71f2b">
+  <meta name="description" content="A two-person fortune vending machine game.">
+
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+
+<div id="toast" class="toast"></div>
+
+
+<!-- FIREBASE NOT CONFIGURED -->
+<section id="setupError" class="center-screen hidden">
+  <div class="setup-card">
+    <div class="huge">🥠</div>
+    <h1>Firebase needs connecting</h1>
+    <p>
+      Open <code>firebase-config.js</code> and paste the Firebase web-app
+      configuration from your Firebase project.
+    </p>
+    <p class="muted">
+      Everything else is already built.
+    </p>
+  </div>
+</section>
+
+
+<!-- ACCOUNT LOGIN -->
+<section id="authView" class="center-screen hidden">
+
+  <div class="setup-card auth-card">
+
+    <div class="logo-cookie">🥠</div>
+
+    <h1>FORTUNES</h1>
+
+    <p class="subtitle">
+      Fortune vending for two.
+    </p>
+
+    <form id="authForm" class="stack">
+
+      <label>
+        Email
+        <input
+          id="emailInput"
+          type="email"
+          autocomplete="email"
+          required
+          placeholder="you@example.com">
+      </label>
+
+      <label>
+        Password
+        <input
+          id="passwordInput"
+          type="password"
+          autocomplete="current-password"
+          minlength="6"
+          required
+          placeholder="••••••••">
+      </label>
+
+      <button class="button red" type="submit">
+        Log in
       </button>
 
-      <article class="fortune-paper" id="fortunePaper" aria-hidden="true">
-        <p class="fortune-text" id="fortuneText"></p>
+      <button id="registerButton" class="button cream" type="button">
+        Create account
+      </button>
+
+      <button id="resetPasswordButton" class="text-button" type="button">
+        Forgot password?
+      </button>
+
+    </form>
+
+    <p id="authStatus" class="status"></p>
+
+  </div>
+
+</section>
+
+
+<!-- ROOM CREATION / JOIN -->
+<section id="roomView" class="center-screen hidden">
+
+  <div class="setup-card room-card">
+
+    <div class="huge">🎰</div>
+
+    <h1>Your fortune room</h1>
+
+    <p class="muted">
+      One of you creates the room. The other joins using the private code.
+    </p>
+
+    <div class="room-choice">
+
+      <div class="choice-box">
+        <h2>Create</h2>
+
+        <label>
+          Your name
+          <input id="createNameInput" maxlength="30" placeholder="Your name">
+        </label>
+
+        <button id="createRoomButton" class="button red">
+          Create our room
+        </button>
+      </div>
+
+      <div class="choice-box">
+        <h2>Join</h2>
+
+        <label>
+          Your name
+          <input id="joinNameInput" maxlength="30" placeholder="Your name">
+        </label>
+
+        <label>
+          Room code
+          <input
+            id="joinCodeInput"
+            maxlength="20"
+            autocomplete="off"
+            placeholder="XXXXXXXXXXXX">
+        </label>
+
+        <button id="joinRoomButton" class="button gold">
+          Join room
+        </button>
+      </div>
+
+    </div>
+
+    <p id="roomStatus" class="status"></p>
+
+    <button id="roomLogoutButton" class="text-button">
+      Log out
+    </button>
+
+  </div>
+
+</section>
+
+
+<!-- MAIN APP -->
+<div id="appView" class="hidden">
+
+<header class="topbar">
+
+  <div class="brand">
+    <div class="brand-mark">🥠</div>
+
+    <div>
+      <strong>FORTUNES</strong>
+      <small id="headerPlayerName"></small>
+    </div>
+  </div>
+
+  <div class="room-pill">
+    <span>ROOM</span>
+    <strong id="headerRoomCode"></strong>
+  </div>
+
+</header>
+
+
+<nav class="tabs">
+
+  <button class="tab active" data-panel="machine">
+    <span>🎰</span>
+    Machine
+  </button>
+
+  <button class="tab" data-panel="album">
+    <span>📖</span>
+    Album
+  </button>
+
+  <button class="tab" data-panel="chat">
+    <span>💌</span>
+    Chat
+  </button>
+
+  <button class="tab" data-panel="achievements">
+    <span>🏆</span>
+    Awards
+  </button>
+
+  <button class="tab" data-panel="compare">
+    <span>⚖️</span>
+    Compare
+  </button>
+
+  <button class="tab" data-panel="settings">
+    <span>⚙️</span>
+    Settings
+  </button>
+
+</nav>
+
+
+<main class="main-content">
+
+
+<!-- MACHINE -->
+<section id="panel-machine" class="panel active">
+
+  <div class="machine-grid">
+
+    <article class="vending-machine">
+
+      <div class="machine-title">
+        TOM ROBBINS<br>
+        FORTUNE VENDOR
+      </div>
+
+      <div class="machine-window">
+
+        <div id="machineDisplay" class="machine-display">
+        </div>
+
+      </div>
+
+      <div class="machine-controls">
+
+        <button id="vendButton" class="machine-button">
+          TURN THE HANDLE
+        </button>
+
+        <button id="openButton" class="machine-button pale" disabled>
+          OPEN
+        </button>
+
+      </div>
+
+    </article>
+
+
+    <div class="side-column">
+
+      <article class="card">
+
+        <h2 id="machineOwnerTitle">Your fortunes</h2>
+
+        <div id="quickStats" class="stats-grid"></div>
+
       </article>
-    </section>
 
-    <button class="again-button" id="againButton" type="button" hidden>Another cookie</button>
-  </main>
 
-  <script src="script.js"></script>
+      <article id="revealArea" class="reveal-holder"></article>
+
+
+      <article class="card">
+
+        <h3>Machine odds</h3>
+
+        <div class="odds-list">
+
+          <div><span>🥠 Normal</span><strong>73%</strong></div>
+          <div><span>💔 Broken</span><strong>6%</strong></div>
+          <div><span>🪨 Hard</span><strong>5%</strong></div>
+          <div><span>✨ Shiny</span><strong>5%</strong></div>
+          <div><span>👑 Legendary</span><strong>1%</strong></div>
+          <div><span>🎭 Personality</span><strong>5%</strong></div>
+          <div><span>🌍 Country</span><strong>5%</strong></div>
+
+        </div>
+
+      </article>
+
+    </div>
+
+  </div>
+
+</section>
+
+
+<!-- ALBUM -->
+<section id="panel-album" class="panel">
+
+  <article class="card">
+
+    <div class="section-heading">
+
+      <div>
+        <h1>Fortune Album</h1>
+        <p>
+          Every cookie stays with the fortune it contained.
+        </p>
+      </div>
+
+      <select id="albumOwnerSelect">
+        <option value="mine">Mine</option>
+        <option value="partner">Partner</option>
+        <option value="both">Both</option>
+      </select>
+
+    </div>
+
+
+    <div id="albumFilters" class="filter-row"></div>
+
+  </article>
+
+
+  <div id="albumGrid" class="album-grid"></div>
+
+
+  <div class="two-column top-space">
+
+    <article class="card">
+
+      <h2>My personality stickers</h2>
+
+      <div id="stickersGrid" class="collectibles-grid"></div>
+
+    </article>
+
+
+    <article class="card">
+
+      <h2>My country stamps</h2>
+
+      <div id="stampsGrid" class="collectibles-grid"></div>
+
+    </article>
+
+  </div>
+
+
+  <article class="card top-space">
+
+    <h2>YOMs</h2>
+
+    <p class="muted">
+      Legendary cookies grant a genuine You Owe Me.
+    </p>
+
+    <div id="yomList"></div>
+
+  </article>
+
+</section>
+
+
+<!-- CHAT -->
+<section id="panel-chat" class="panel">
+
+  <article class="card chat-card">
+
+    <div class="section-heading">
+
+      <div>
+        <h1>Messages</h1>
+        <p>
+          Stickers and stamps have to be discovered before you can send them.
+        </p>
+      </div>
+
+    </div>
+
+
+    <div id="messageList" class="message-list"></div>
+
+
+    <form id="messageForm" class="message-compose">
+
+      <input
+        id="messageInput"
+        maxlength="500"
+        placeholder="Write something...">
+
+      <button class="button red">
+        Send
+      </button>
+
+    </form>
+
+
+    <div class="collectible-compose">
+
+      <select id="collectibleSelect"></select>
+
+      <button id="sendCollectibleButton" class="button cream">
+        Send collectible
+      </button>
+
+    </div>
+
+
+    <div id="quickCollectibles" class="quick-collectibles"></div>
+
+  </article>
+
+</section>
+
+
+<!-- ACHIEVEMENTS -->
+<section id="panel-achievements" class="panel">
+
+  <div class="two-column">
+
+    <article class="card">
+
+      <h1>My achievements</h1>
+
+      <div id="achievementList"></div>
+
+    </article>
+
+
+    <article class="card">
+
+      <h1>Together</h1>
+
+      <div id="sharedAchievementList"></div>
+
+    </article>
+
+  </div>
+
+</section>
+
+
+<!-- COMPARE -->
+<section id="panel-compare" class="panel">
+
+  <article class="card">
+
+    <h1>Compare collections</h1>
+
+    <p class="muted">
+      An extremely serious measurement of who has been more favoured by
+      the machine.
+    </p>
+
+  </article>
+
+  <div id="compareGrid" class="compare-grid top-space"></div>
+
+</section>
+
+
+<!-- SETTINGS -->
+<section id="panel-settings" class="panel">
+
+  <div class="two-column">
+
+    <article class="card">
+
+      <h1>Our room</h1>
+
+      <div class="setting-block">
+        <span>Room code</span>
+        <strong id="settingsRoomCode"></strong>
+      </div>
+
+      <button id="copyCodeButton" class="button cream">
+        Copy room code
+      </button>
+
+      <button id="copyInviteButton" class="button cream">
+        Copy invite link
+      </button>
+
+
+      <hr>
+
+
+      <label>
+        My display name
+        <input id="renameInput" maxlength="30">
+      </label>
+
+      <button id="renameButton" class="button red">
+        Save name
+      </button>
+
+
+      <div id="ownerControls" class="hidden">
+
+        <hr>
+
+        <h3>Room owner controls</h3>
+
+        <button id="resetPartnerButton" class="button danger">
+          Reset partner slot
+        </button>
+
+        <p class="tiny muted">
+          Only use this if your partner loses access to their account and
+          needs to join again.
+        </p>
+
+      </div>
+
+    </article>
+
+
+    <article class="card">
+
+      <h1>App</h1>
+
+      <button id="installButton" class="button gold">
+        Install / Add to Home Screen
+      </button>
+
+      <hr>
+
+      <div class="setting-block">
+        <span>Signed in as</span>
+        <strong id="accountEmail"></strong>
+      </div>
+
+      <button id="forgetRoomButton" class="button cream">
+        Forget room on this device
+      </button>
+
+      <button id="logoutButton" class="button danger">
+        Log out
+      </button>
+
+    </article>
+
+  </div>
+
+</section>
+
+
+</main>
+
+</div>
+
+
+<script type="module" src="./app.js"></script>
+
 </body>
 </html>
