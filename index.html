@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6efe3">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Fortune">
+  <title>Fortune Cookie</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <p class="eyebrow">YOUR FORTUNE AWAITS</p>
+    <h1>Crack the cookie</h1>
+    <p class="hint">Tap it. No refunds on emotional damage.</p>
+
+    <section class="stage" aria-live="polite">
+      <button class="cookie-button" id="cookieButton" type="button" aria-label="Crack the fortune cookie">
+        <span class="cookie" aria-hidden="true">
+          <span class="cookie-half cookie-left"></span>
+          <span class="cookie-half cookie-right"></span>
+          <span class="crack"></span>
+        </span>
+      </button>
+
+      <article class="fortune-paper" id="fortunePaper" aria-hidden="true">
+        <p class="fortune-text" id="fortuneText"></p>
+      </article>
+    </section>
+
+    <button class="again-button" id="againButton" type="button" hidden>Another cookie</button>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
